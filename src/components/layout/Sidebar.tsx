@@ -15,7 +15,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
   const { state } = useOrchestrator();
   const actions = useOrchestratorActions();
 
@@ -78,6 +78,7 @@ export default function Sidebar() {
             icon={<Lock className="w-4 h-4" />}
             label="Vault"
             indent
+            onClick={onOpenVault}
           />
         </div>
 
