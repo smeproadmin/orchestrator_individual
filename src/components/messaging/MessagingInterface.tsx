@@ -6,6 +6,8 @@ import { Paperclip, Link2, Send, Settings2, ChevronDown, Loader2 } from 'lucide-
 import type { CostPerfProfile, Message } from '@/lib/orchestrator/types';
 import { orchestrateClient } from '@/lib/orchestrator/client-engine';
 import type { EnrichedOrchestrationResponse } from '@/lib/orchestrator/client-engine';
+import { orchestrateLive } from '@/lib/orchestrator/live-engine';
+import { hasApiKey } from '@/components/settings/SettingsPanel';
 import MessageBubble from './MessageBubble';
 import type { WorkflowStep } from '@/components/orchestrate/WorkflowSteps';
 import type { Artifact } from '@/components/orchestrate/ArtifactRenderer';
@@ -70,13 +72,26 @@ export default function MessagingInterface() {
     actions.setOrchestrating(true);
 
     try {
-      const data: EnrichedOrchestrationResponse = await orchestrateClient({
+      const orchestrationRequest = {
         sessionId,
         message: messageText,
         mode: state.orchestrationMode,
         costPerfProfile: state.costPerfProfile,
         category: state.activeCategory,
-      });
+      };
+
+      // Try live AI engine first, fall back to local demo engine
+      let data: EnrichedOrchestrationResponse;
+      if (hasApiKey()) {
+        try {
+          data = await orchestrateLive(orchestrationRequest);
+        } catch (liveError) {
+          console.warn('Live engine failed, falling back to local:', liveError);
+          data = await orchestrateClient(orchestrationRequest);
+        }
+      } else {
+        data = await orchestrateClient(orchestrationRequest);
+      }
 
       const messageId = data.messageId || crypto.randomUUID();
 

@@ -7,21 +7,25 @@ import Sidebar from '@/components/layout/Sidebar';
 import CategoryTabs from '@/components/orchestrate/CategoryTabs';
 import MessagingInterface from '@/components/messaging/MessagingInterface';
 import VaultPanel from '@/components/layout/VaultPanel';
+import SettingsPanel from '@/components/settings/SettingsPanel';
+import { hasApiKey } from '@/components/settings/SettingsPanel';
 
 function OrchestratorApp() {
   const { state } = useOrchestrator();
   const [showVault, setShowVault] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <Header />
+      <Header onOpenSettings={() => setShowSettings(true)} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onOpenVault={() => setShowVault(true)} />
         <main className="flex-1 overflow-y-auto relative">
-          {/* Vault Modal Overlay */}
-          {showVault && (
+          {/* Modal Overlays */}
+          {(showVault || showSettings) && (
             <div className="absolute inset-0 z-20 bg-black/20 flex items-start justify-center pt-16">
-              <VaultPanel onClose={() => setShowVault(false)} />
+              {showVault && <VaultPanel onClose={() => setShowVault(false)} />}
+              {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
             </div>
           )}
 
@@ -41,6 +45,24 @@ function OrchestratorApp() {
                   Empowering with AI, not replacing.
                 </p>
               </div>
+
+              {/* API Key Banner */}
+              {!hasApiKey() && (
+                <div className="mb-6 mx-auto max-w-3xl">
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-amber-800">
+                      <span className="text-base">&#9889;</span>
+                      <span><strong>Demo mode</strong> — Connect your Anthropic API key for real-time, live AI responses</span>
+                    </div>
+                    <span className="text-xs font-medium text-amber-600 group-hover:text-amber-800 px-2 py-1 bg-amber-100 rounded">
+                      Configure &rarr;
+                    </span>
+                  </button>
+                </div>
+              )}
 
               {/* Category Tabs */}
               <div className="flex justify-center mb-6">
