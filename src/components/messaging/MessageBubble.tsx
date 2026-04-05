@@ -12,15 +12,38 @@ interface MessageBubbleProps {
   message: Message;
   workflowSteps?: WorkflowStep[];
   artifacts?: Artifact[];
+  routing?: {
+    primaryAgent: { id: string; name: string; role: string };
+    supportingAgents: Array<{ id: string; name: string; role: string }>;
+    confidence: number;
+    reasoning: string;
+  };
 }
 
-export default function MessageBubble({ message, workflowSteps, artifacts }: MessageBubbleProps) {
+export default function MessageBubble({ message, workflowSteps, artifacts, routing }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`rounded-lg ${isUser ? 'max-w-lg' : 'max-w-2xl w-full'}`}>
+        {/* Agent routing badge */}
+        {!isUser && !isSystem && routing && (
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
+              {routing.primaryAgent.role}
+            </span>
+            {routing.supportingAgents.map(a => (
+              <span key={a.id} className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-medium">
+                + {a.name}
+              </span>
+            ))}
+            <span className="text-[10px] text-gray-400">
+              {(routing.confidence * 100).toFixed(0)}% confidence
+            </span>
+          </div>
+        )}
+
         {/* Message content */}
         <div
           className={`rounded-lg px-4 py-3 ${

@@ -7,25 +7,21 @@ import Sidebar from '@/components/layout/Sidebar';
 import CategoryTabs from '@/components/orchestrate/CategoryTabs';
 import MessagingInterface from '@/components/messaging/MessagingInterface';
 import VaultPanel from '@/components/layout/VaultPanel';
-import SettingsPanel from '@/components/settings/SettingsPanel';
-import { hasApiKey } from '@/components/settings/SettingsPanel';
 
 function OrchestratorApp() {
   const { state } = useOrchestrator();
   const [showVault, setShowVault] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      <Header onOpenSettings={() => setShowSettings(true)} />
+      <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onOpenVault={() => setShowVault(true)} />
         <main className="flex-1 overflow-y-auto relative">
           {/* Modal Overlays */}
-          {(showVault || showSettings) && (
+          {showVault && (
             <div className="absolute inset-0 z-20 bg-black/20 flex items-start justify-center pt-16">
-              {showVault && <VaultPanel onClose={() => setShowVault(false)} />}
-              {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+              <VaultPanel onClose={() => setShowVault(false)} />
             </div>
           )}
 
@@ -46,24 +42,6 @@ function OrchestratorApp() {
                 </p>
               </div>
 
-              {/* API Key Banner */}
-              {!hasApiKey() && (
-                <div className="mb-6 mx-auto max-w-3xl">
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="w-full flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors group"
-                  >
-                    <div className="flex items-center gap-2 text-sm text-amber-800">
-                      <span className="text-base">&#9889;</span>
-                      <span><strong>Demo mode</strong> — Connect your Anthropic API key for real-time, live AI responses</span>
-                    </div>
-                    <span className="text-xs font-medium text-amber-600 group-hover:text-amber-800 px-2 py-1 bg-amber-100 rounded">
-                      Configure &rarr;
-                    </span>
-                  </button>
-                </div>
-              )}
-
               {/* Category Tabs */}
               <div className="flex justify-center mb-6">
                 <CategoryTabs />
@@ -78,26 +56,28 @@ function OrchestratorApp() {
             <div className="max-w-4xl mx-auto px-8 py-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Prompt Library</h2>
               <p className="text-sm text-gray-500 mb-6">
-                Pre-built orchestration prompts optimized for different use cases.
+                Pre-built orchestration prompts optimized for different use cases. Click to load into the messaging interface.
               </p>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { title: 'Compliance Gap Analysis', desc: 'Identify compliance gaps against regulatory frameworks', category: 'Compliance' },
-                  { title: 'Risk Heat Map Generator', desc: 'Generate a comprehensive risk assessment heat map', category: 'Risk' },
-                  { title: 'Process Automation Blueprint', desc: 'Design an automation pipeline for business processes', category: 'Automation' },
-                  { title: 'Vendor Risk Assessment', desc: 'Evaluate third-party vendor security and compliance', category: 'Risk' },
-                  { title: 'Data Privacy Audit', desc: 'Audit data handling practices against GDPR/CCPA', category: 'Compliance' },
-                  { title: 'Incident Response Plan', desc: 'Generate an incident response playbook', category: 'Security' },
-                  { title: 'Market Research Brief', desc: 'Research and summarize market intelligence', category: 'Research' },
-                  { title: 'Financial Analysis Report', desc: 'Analyze financial data and generate insights', category: 'Finance' },
+                  { title: 'Compliance Gap Analysis', desc: 'Identify compliance gaps against regulatory frameworks (GDPR, HIPAA, SOX, PCI)', category: 'Compliance' },
+                  { title: 'Risk Heat Map Generator', desc: 'Generate a comprehensive risk assessment heat map with likelihood and impact scoring', category: 'Risk' },
+                  { title: 'Process Automation Blueprint', desc: 'Design an automation pipeline for business processes with cost/ROI estimates', category: 'Automation' },
+                  { title: 'Vendor Risk Assessment', desc: 'Evaluate third-party vendor security posture and compliance status', category: 'Risk' },
+                  { title: 'Data Privacy Audit', desc: 'Audit data handling practices against GDPR/CCPA requirements', category: 'Compliance' },
+                  { title: 'Incident Response Plan', desc: 'Generate an incident response playbook with escalation procedures', category: 'Security' },
+                  { title: 'Market Research Brief', desc: 'Research and summarize market intelligence with competitive analysis', category: 'Research' },
+                  { title: 'Financial Analysis Report', desc: 'Analyze financial data, generate insights, and forecast trends', category: 'Finance' },
+                  { title: 'Real Estate Market Analysis', desc: 'Analyze property listings, market trends, and comparable sales by area', category: 'Real Estate' },
+                  { title: 'Code Architecture Review', desc: 'Review system architecture and recommend improvements', category: 'Engineering' },
                 ].map((prompt, i) => (
                   <div
                     key={i}
-                    className="border border-gray-200 rounded-lg p-4 bg-white hover:border-blue-300 hover:shadow-sm cursor-pointer transition-all"
+                    className="border border-gray-200 rounded-lg p-4 bg-white hover:border-blue-300 hover:shadow-sm cursor-pointer transition-all group"
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="text-sm font-semibold text-gray-800">{prompt.title}</h3>
-                      <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full font-medium">
+                      <h3 className="text-sm font-semibold text-gray-800 group-hover:text-blue-700">{prompt.title}</h3>
+                      <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full font-medium shrink-0">
                         {prompt.category}
                       </span>
                     </div>

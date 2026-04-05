@@ -10,7 +10,7 @@ const tabs: Array<{ key: TabType; label: string; icon?: boolean }> = [
   { key: 'gallery', label: 'GALLERY' },
 ];
 
-export default function Header({ onOpenSettings }: { onOpenSettings?: () => void }) {
+export default function Header() {
   const { state } = useOrchestrator();
   const { setTab } = useOrchestratorActions();
   const { gas } = state;
@@ -49,14 +49,6 @@ export default function Header({ onOpenSettings }: { onOpenSettings?: () => void
       </div>
 
       <div className="flex items-center gap-4">
-        <button
-          onClick={onOpenSettings}
-          className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-          title="AI Provider Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-
         <div className="flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full bg-blue-600" />
           <span className="text-xs font-medium text-gray-600 tracking-wide">
