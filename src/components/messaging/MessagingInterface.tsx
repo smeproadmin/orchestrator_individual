@@ -6,8 +6,6 @@ import { Paperclip, Link2, Send, Settings2, ChevronDown, Loader2 } from 'lucide-
 import type { CostPerfProfile, Message } from '@/lib/orchestrator/types';
 import { orchestrateClient } from '@/lib/orchestrator/client-engine';
 import type { EnrichedOrchestrationResponse } from '@/lib/orchestrator/client-engine';
-import { orchestrateLive } from '@/lib/orchestrator/live-engine';
-import { hasApiKey } from '@/components/settings/SettingsPanel';
 import MessageBubble from './MessageBubble';
 import type { WorkflowStep } from '@/components/orchestrate/WorkflowSteps';
 import type { Artifact } from '@/components/orchestrate/ArtifactRenderer';
@@ -18,10 +16,51 @@ const profileLabels: Record<CostPerfProfile, string> = {
   balanced: 'AUTO-ORCHESTRATE (COST/PERF)',
 };
 
-// Store enriched data per message
 interface MessageEnrichment {
   workflowSteps?: WorkflowStep[];
   artifacts?: Artifact[];
+  routing?: {
+    primaryAgent: { id: string; name: string; role: string };
+    supportingAgents: Array<{ id: string; name: string; role: string }>;
+    confidence: number;
+    reasoning: string;
+  };
+}
+
+function extractArtifactsFromContent(content: string): Artifact[] {
+  const artifacts: Artifact[] = [];
+  const tableRegex = /(?:^|\n)((?:\|[^\n]+\|\n)+)/g;
+  let tableMatch;
+  let tableIndex = 0;
+  while ((tableMatch = tableRegex.exec(content)) !== null) {
+    const tableContent = tableMatch[1].trim();
+    const lines = tableContent.split('\n').filter(l => l.trim());
+    if (lines.length >= 3) {
+      tableIndex++;
+      const beforeTable = content.substring(0, tableMatch.index);
+      const headerMatch = beforeTable.match(/#{1,3}\s+([^\n]+)\s*$/);
+      artifacts.push({
+        id: crypto.randomUUID(),
+        type: 'table',
+        title: headerMatch ? headerMatch[1].trim() : `Data Table ${tableIndex}`,
+        content: tableContent,
+      });
+    }
+  }
+  const codeRegex = /```(\w*)\n([\s\S]*?)```/g;
+  let codeMatch;
+  let codeIndex = 0;
+  while ((codeMatch = codeRegex.exec(content)) !== null) {
+    codeIndex++;
+    artifacts.push({
+      id: crypto.randomUUID(),
+      type: 'code',
+      title: `Code Block ${codeIndex}`,
+      content: codeMatch[2].trim(),
+      language: codeMatch[1] || 'text',
+    });
+  }
+  return artifacts;
 }
 
 export default function MessagingInterface() {
@@ -30,10 +69,19 @@ export default function MessagingInterface() {
   const [input, setInput] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [enrichments, setEnrichments] = useState<Record<string, MessageEnrichment>>({});
+  const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeSession = state.sessions.find(s => s.id === state.activeSessionId);
+
+  // Check if server API is available on mount
+  useEffect(() => {
+    fetch('/api/orchestrate')
+      .then(r => r.json())
+      .then(data => setServerAvailable(data.status === 'operational'))
+      .catch(() => setServerAvailable(false));
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,28 +120,56 @@ export default function MessagingInterface() {
     actions.setOrchestrating(true);
 
     try {
-      const orchestrationRequest = {
-        sessionId,
-        message: messageText,
-        mode: state.orchestrationMode,
-        costPerfProfile: state.costPerfProfile,
-        category: state.activeCategory,
-      };
+      let data: EnrichedOrchestrationResponse & { routing?: MessageEnrichment['routing'] };
 
-      // Try live AI engine first, fall back to local demo engine
-      let data: EnrichedOrchestrationResponse;
-      if (hasApiKey()) {
-        try {
-          data = await orchestrateLive(orchestrationRequest);
-        } catch (liveError) {
-          console.warn('Live engine failed, falling back to local:', liveError);
-          data = await orchestrateClient(orchestrationRequest);
+      if (serverAvailable) {
+        // Use server-side API (managed API keys, multi-agent orchestration)
+        const response = await fetch('/api/orchestrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            message: messageText,
+            category: state.activeCategory,
+            costPerfProfile: state.costPerfProfile,
+            conversationHistory: (activeSession?.messages || [])
+              .slice(-10)
+              .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content })),
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ error: 'Server error' }));
+          throw new Error(err.error || `Server error: ${response.status}`);
         }
+
+        const serverData = await response.json();
+        const artifacts = extractArtifactsFromContent(serverData.content || '');
+
+        data = {
+          ...serverData,
+          artifacts,
+          clawResults: [],
+          tasks: [],
+          decodingLayers: ['Agent Router', 'Intent Analysis', 'Live AI Engine'],
+          yellowBrickPath: `path_${state.activeCategory || 'for_you'}`,
+        };
       } else {
-        data = await orchestrateClient(orchestrationRequest);
+        // Fall back to client-side demo engine
+        data = await orchestrateClient({
+          sessionId,
+          message: messageText,
+          mode: state.orchestrationMode,
+          costPerfProfile: state.costPerfProfile,
+          category: state.activeCategory,
+        });
       }
 
       const messageId = data.messageId || crypto.randomUUID();
+
+      const agentClaws = data.routing
+        ? [data.routing.primaryAgent.id, ...data.routing.supportingAgents.map(a => a.id)] as string[]
+        : data.clawResults?.map(r => r.clawType) || [];
 
       const orchestratorMessage: Message = {
         id: messageId,
@@ -101,19 +177,19 @@ export default function MessagingInterface() {
         content: data.content || 'Orchestration complete.',
         timestamp: new Date().toISOString(),
         metadata: {
-          clawsUsed: data.clawResults?.map(r => r.clawType) || [],
+          clawsUsed: agentClaws as Message['metadata'] extends { clawsUsed?: infer T } ? T : never,
           gasUsed: data.gasUsed || 0,
           decodingPath: data.yellowBrickPath,
           confidence: data.confidence,
         },
       };
 
-      // Store enrichment data
       setEnrichments(prev => ({
         ...prev,
         [messageId]: {
           workflowSteps: data.workflowSteps,
           artifacts: data.artifacts,
+          routing: data.routing,
         },
       }));
 
@@ -122,11 +198,11 @@ export default function MessagingInterface() {
         used: state.gas.used + (data.gasUsed || 0),
         remaining: Math.max(0, state.gas.remaining - (data.gasUsed || 0)),
       });
-    } catch {
+    } catch (error) {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'system',
-        content: 'Orchestration failed. Please try again.',
+        content: `Orchestration error: ${error instanceof Error ? error.message : 'Unknown error'}. ${!serverAvailable ? 'Running in demo mode — deploy with ANTHROPIC_API_KEY for live responses.' : ''}`,
         timestamp: new Date().toISOString(),
       };
       actions.addMessage(sessionId, errorMessage);
@@ -146,6 +222,7 @@ export default function MessagingInterface() {
               message={msg}
               workflowSteps={enrichments[msg.id]?.workflowSteps}
               artifacts={enrichments[msg.id]?.artifacts}
+              routing={enrichments[msg.id]?.routing}
             />
           ))}
 
@@ -154,7 +231,11 @@ export default function MessagingInterface() {
               <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                  <span>Orchestrating through Yellow Brick Road pipeline...</span>
+                  <span>
+                    {serverAvailable
+                      ? 'Routing to expert agents via Yellow Brick Road pipeline...'
+                      : 'Processing through demo orchestration engine...'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -166,9 +247,20 @@ export default function MessagingInterface() {
 
       {/* Messaging Interface Section Label */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-400 tracking-widest uppercase">
-          MESSAGING INTERFACE
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-400 tracking-widest uppercase">
+            MESSAGING INTERFACE
+          </span>
+          {serverAvailable !== null && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+              serverAvailable
+                ? 'bg-green-50 text-green-600'
+                : 'bg-amber-50 text-amber-600'
+            }`}>
+              {serverAvailable ? 'LIVE' : 'DEMO'}
+            </span>
+          )}
+        </div>
         <ChevronDown className="w-4 h-4 text-gray-400" />
       </div>
 
