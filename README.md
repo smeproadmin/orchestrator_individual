@@ -2,68 +2,90 @@
 
 **Empowering with AI, not replacing.**
 
-An Intelligence Orchestration System that combines copilot task engine capabilities, skill-based orchestration, and multi-model AI coordination through a novel architecture called the **Yellow Brick Road**.
+A multi-agent Intelligence Orchestration System that dynamically spins up specialized SME (Subject Matter Expert) AI agents based on user intent. Built on the **Yellow Brick Road** architecture.
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fsmeproadmin%2Forchestrator_individual&env=ANTHROPIC_API_KEY&envDescription=Your%20Anthropic%20API%20key%20for%20powering%20the%20multi-agent%20orchestration&envLink=https%3A%2F%2Fconsole.anthropic.com%2Fsettings%2Fkeys&project-name=orchestrator&repository-name=orchestrator)
+
+## Quick Deploy to Vercel
+
+1. Click the **"Deploy with Vercel"** button above
+2. If prompted, connect your GitHub account
+3. When asked for environment variables, paste your **Anthropic API key** (`sk-ant-...`)
+   - Get one at: https://console.anthropic.com/settings/keys
+4. Click **Deploy** — your app will be live in ~60 seconds
 
 ## Architecture
 
-### Yellow Brick Road
+### Multi-Agent Orchestration
 
-The core orchestration pipeline that routes intelligence through a directed graph of processing nodes:
+The Orchestrator analyzes each user query and dynamically selects the best SME agent(s):
 
-- **Ingress** - Input reception and normalization
-- **Decode** - Universal Decoding Matrix processing
-- **Route** - Claw technology assignment
-- **Transform** - Result transformation and enrichment
-- **Egress** - Output synthesis and delivery
+| Agent | Specialization |
+|-------|---------------|
+| Real Estate Intelligence | Property search, FSBO, MLS, market analysis, valuations |
+| Compliance & Regulatory | GDPR, HIPAA, SOX, PCI-DSS, audit frameworks, gap analysis |
+| Risk Analysis | Threat modeling, impact analysis, risk heat maps, mitigation |
+| Automation & Workflow | Pipeline design, CI/CD, process optimization, RPA |
+| Financial Analysis | Markets, portfolio, valuations, forecasting, M&A |
+| Software Engineering | Code generation, architecture design, debugging |
+| Research & Intelligence | Market research, competitive analysis, trends |
+| General Intelligence | Catch-all for queries that span multiple domains |
 
-### Compliance OS Universal Decoding Matrix
+### How It Works
 
-Multi-layer semantic, structural, and compliance decoder that analyzes inputs through five specialized layers:
+1. User sends a natural language query
+2. **Agent Router** analyzes intent, extracts entities (locations, prices, regulations, etc.)
+3. Router selects a **primary agent** + up to 2 **supporting agents**
+4. Primary agent generates the main response via Claude API
+5. Supporting agents run **in parallel** for additional expert perspectives
+6. Orchestrator synthesizes everything into a unified response with workflow steps and artifacts
 
-1. **Semantic Analysis** - Entity extraction, action detection, numeric parsing
-2. **Structural Analysis** - List detection, code block extraction
-3. **Compliance Check** - PII detection, regulation flagging (GDPR, HIPAA, SOX, PCI)
-4. **Risk Assessment** - Severity scoring, impact analysis
-5. **Intent Classification** - Query vs command classification
+### Yellow Brick Road Pipeline
 
-### Claw Technologies
-
-Three integrated intelligence engines, each optimized for different workloads:
-
-- **OpenClaw** - General-purpose reasoning and analysis (cost-efficient)
-- **SwarmAgents** - Distributed multi-agent parallel processing (high throughput)
-- **KimiClaw** - Deep analysis and precision domain expertise (high accuracy)
+```
+[User Input] → [Intent Analysis] → [Agent Router] → [Primary Agent] → [Response Synthesis]
+                                        ↓                                      ↑
+                                 [Supporting Agents] ────── (parallel) ────────┘
+```
 
 ## Features
 
-- Multi-category orchestration (Compliance Audit, Risk Analysis, Automation Plan)
-- Session management with full message history
-- Project organization with vault item storage
-- Gas-based resource tracking and cost management
-- Auto-orchestrate with configurable cost/performance profiles
-- Real-time orchestration status and confidence scoring
+- **8 Specialized SME Agents** — dynamically selected per query
+- **Multi-agent collaboration** — primary + supporting agents work together
+- **Pay-as-you-go model** — gas credits track usage, no user API keys needed
+- **Rich responses** — markdown rendering, data tables, code blocks, checklists
+- **Interactive workflows** — expandable orchestration step visualization
+- **Artifact system** — tables, code, checklists with copy/expand
+- **Category modes** — Compliance Audit, Risk Analysis, Automation Plan, For You
+- **Session management** — conversation history, project organization
+- **Vault** — save and reuse snippets, templates, and configurations
 
-## Getting Started
+## Local Development
 
 ```bash
+git clone https://github.com/smeproadmin/orchestrator_individual.git
+cd orchestrator_individual
 npm install
+
+# Create .env.local with your Anthropic API key
+echo "ANTHROPIC_API_KEY=sk-ant-..." > .env.local
+
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to access the Orchestrator.
+Open http://localhost:3000
 
-## API Endpoints
+## Environment Variables
 
-- `POST /api/orchestrate` - Execute an orchestration request
-- `GET /api/orchestrate` - Get engine status and registered paths
-- `GET/POST /api/vault` - Manage vault items
-- `GET/POST /api/sessions` - Manage sessions
-- `GET/POST /api/projects` - Manage projects
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for multi-agent AI orchestration |
 
 ## Tech Stack
 
-- Next.js 16 (App Router)
+- Next.js 16 (App Router, API Routes)
 - TypeScript
 - Tailwind CSS 4
 - React 19
+- Claude API (Anthropic)
 - Lucide Icons
