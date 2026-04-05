@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useOrchestrator, useOrchestratorActions } from '@/store/orchestrator-context';
 import { Paperclip, Link2, Send, Settings2, ChevronDown, Loader2 } from 'lucide-react';
 import type { CostPerfProfile, Message } from '@/lib/orchestrator/types';
 import { orchestrateClient } from '@/lib/orchestrator/client-engine';
+import type { EnrichedOrchestrationResponse } from '@/lib/orchestrator/client-engine';
+import MessageBubble from './MessageBubble';
+import type { WorkflowStep } from '@/components/orchestrate/WorkflowSteps';
+import type { Artifact } from '@/components/orchestrate/ArtifactRenderer';
 
 const profileLabels: Record<CostPerfProfile, string> = {
   cost: 'OPTIMIZE (COST)',
@@ -12,24 +16,37 @@ const profileLabels: Record<CostPerfProfile, string> = {
   balanced: 'AUTO-ORCHESTRATE (COST/PERF)',
 };
 
+// Store enriched data per message
+interface MessageEnrichment {
+  workflowSteps?: WorkflowStep[];
+  artifacts?: Artifact[];
+}
+
 export default function MessagingInterface() {
   const { state } = useOrchestrator();
   const actions = useOrchestratorActions();
   const [input, setInput] = useState('');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [enrichments, setEnrichments] = useState<Record<string, MessageEnrichment>>({});
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const activeSession = state.sessions.find(s => s.id === state.activeSessionId);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeSession?.messages.length]);
+
   const handleSend = async () => {
     if (!input.trim() || state.isOrchestrating) return;
 
+    const messageText = input;
     let sessionId = state.activeSessionId;
 
     if (!sessionId) {
       const newSession = {
         id: crypto.randomUUID(),
-        name: input.substring(0, 30) + (input.length > 30 ? '...' : ''),
+        name: messageText.substring(0, 40) + (messageText.length > 40 ? '...' : ''),
         status: 'active' as const,
         messages: [],
         tasks: [],
@@ -44,7 +61,7 @@ export default function MessagingInterface() {
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: input,
+      content: messageText,
       timestamp: new Date().toISOString(),
     };
 
@@ -53,26 +70,37 @@ export default function MessagingInterface() {
     actions.setOrchestrating(true);
 
     try {
-      const data = await orchestrateClient({
+      const data: EnrichedOrchestrationResponse = await orchestrateClient({
         sessionId,
-        message: input,
+        message: messageText,
         mode: state.orchestrationMode,
         costPerfProfile: state.costPerfProfile,
         category: state.activeCategory,
       });
 
+      const messageId = data.messageId || crypto.randomUUID();
+
       const orchestratorMessage: Message = {
-        id: data.messageId || crypto.randomUUID(),
+        id: messageId,
         role: 'orchestrator',
         content: data.content || 'Orchestration complete.',
         timestamp: new Date().toISOString(),
         metadata: {
-          clawsUsed: data.clawResults?.map((r) => r.clawType) || [],
+          clawsUsed: data.clawResults?.map(r => r.clawType) || [],
           gasUsed: data.gasUsed || 0,
           decodingPath: data.yellowBrickPath,
           confidence: data.confidence,
         },
       };
+
+      // Store enrichment data
+      setEnrichments(prev => ({
+        ...prev,
+        [messageId]: {
+          workflowSteps: data.workflowSteps,
+          artifacts: data.artifacts,
+        },
+      }));
 
       actions.addMessage(sessionId, orchestratorMessage);
       actions.updateGas({
@@ -93,41 +121,31 @@ export default function MessagingInterface() {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto">
       {/* Message History */}
       {activeSession && activeSession.messages.length > 0 && (
-        <div className="mb-6 space-y-4 max-h-96 overflow-y-auto">
+        <div className="mb-6 space-y-4 max-h-[600px] overflow-y-auto pr-2">
           {activeSession.messages.map(msg => (
-            <div
+            <MessageBubble
               key={msg.id}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-lg rounded-lg px-4 py-3 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : msg.role === 'system'
-                    ? 'bg-red-50 text-red-700 border border-red-200'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
-                {msg.metadata && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-500 space-y-0.5">
-                    {msg.metadata.clawsUsed && msg.metadata.clawsUsed.length > 0 && (
-                      <div>Claws: {msg.metadata.clawsUsed.join(', ')}</div>
-                    )}
-                    {msg.metadata.confidence !== undefined && (
-                      <div>Confidence: {(msg.metadata.confidence * 100).toFixed(1)}%</div>
-                    )}
-                    {msg.metadata.gasUsed !== undefined && (
-                      <div>Gas used: {msg.metadata.gasUsed.toFixed(2)}</div>
-                    )}
-                  </div>
-                )}
+              message={msg}
+              workflowSteps={enrichments[msg.id]?.workflowSteps}
+              artifacts={enrichments[msg.id]?.artifacts}
+            />
+          ))}
+
+          {state.isOrchestrating && (
+            <div className="flex justify-start">
+              <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  <span>Orchestrating through Yellow Brick Road pipeline...</span>
+                </div>
               </div>
             </div>
-          ))}
+          )}
+
+          <div ref={messagesEndRef} />
         </div>
       )}
 
