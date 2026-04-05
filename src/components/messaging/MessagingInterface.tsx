@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useOrchestrator, useOrchestratorActions } from '@/store/orchestrator-context';
 import { Paperclip, Link2, Send, Settings2, ChevronDown, Loader2 } from 'lucide-react';
 import type { CostPerfProfile, Message } from '@/lib/orchestrator/types';
+import { orchestrateClient } from '@/lib/orchestrator/client-engine';
 
 const profileLabels: Record<CostPerfProfile, string> = {
   cost: 'OPTIMIZE (COST)',
@@ -52,19 +53,13 @@ export default function MessagingInterface() {
     actions.setOrchestrating(true);
 
     try {
-      const response = await fetch('/api/orchestrate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId,
-          message: input,
-          mode: state.orchestrationMode,
-          costPerfProfile: state.costPerfProfile,
-          category: state.activeCategory,
-        }),
+      const data = await orchestrateClient({
+        sessionId,
+        message: input,
+        mode: state.orchestrationMode,
+        costPerfProfile: state.costPerfProfile,
+        category: state.activeCategory,
       });
-
-      const data = await response.json();
 
       const orchestratorMessage: Message = {
         id: data.messageId || crypto.randomUUID(),
@@ -72,7 +67,7 @@ export default function MessagingInterface() {
         content: data.content || 'Orchestration complete.',
         timestamp: new Date().toISOString(),
         metadata: {
-          clawsUsed: data.clawResults?.map((r: { clawType: string }) => r.clawType) || [],
+          clawsUsed: data.clawResults?.map((r) => r.clawType) || [],
           gasUsed: data.gasUsed || 0,
           decodingPath: data.yellowBrickPath,
           confidence: data.confidence,
