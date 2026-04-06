@@ -5,8 +5,8 @@ import type { CategoryType, CostPerfProfile } from '@/lib/orchestrator/types';
 
 const MODEL_MAP: Record<string, string> = {
   fast: 'claude-haiku-4-5-20251001',
-  balanced: 'claude-sonnet-4-20250514',
-  powerful: 'claude-sonnet-4-20250514',
+  balanced: 'claude-sonnet-4-6',
+  powerful: 'claude-sonnet-4-6',
 };
 
 interface OrchestrationRequestBody {
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Orchestration error:', error);
     return NextResponse.json(
-      { error: 'Orchestration failed', details: String(error) },
+      { error: `Orchestration failed: ${error instanceof Error ? error.message : String(error)}` },
       { status: 500 }
     );
   }
