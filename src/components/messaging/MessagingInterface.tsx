@@ -52,18 +52,26 @@ function extractArtifactsFromContent(content: string): Artifact[] {
   let codeIndex = 0;
   while ((codeMatch = codeRegex.exec(content)) !== null) {
     codeIndex++;
+    const lang = codeMatch[1] || 'text';
+    // Detect HTML artifacts for live rendering
+    const isHtml = lang === 'html' && codeMatch[2].includes('<') && codeMatch[2].length > 100;
     artifacts.push({
       id: crypto.randomUUID(),
-      type: 'code',
-      title: `Code Block ${codeIndex}`,
+      type: isHtml ? 'interactive' as Artifact['type'] : 'code',
+      title: isHtml ? `Interactive App ${codeIndex}` : `Code Block ${codeIndex}`,
       content: codeMatch[2].trim(),
-      language: codeMatch[1] || 'text',
+      language: lang,
     });
   }
   return artifacts;
 }
 
-export default function MessagingInterface() {
+interface MessagingInterfaceProps {
+  pendingPrompt?: string | null;
+  onPromptConsumed?: () => void;
+}
+
+export default function MessagingInterface({ pendingPrompt, onPromptConsumed }: MessagingInterfaceProps) {
   const { state } = useOrchestrator();
   const actions = useOrchestratorActions();
   const [input, setInput] = useState('');
@@ -72,8 +80,18 @@ export default function MessagingInterface() {
   const [serverAvailable, setServerAvailable] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeSession = state.sessions.find(s => s.id === state.activeSessionId);
+
+  // Handle pending prompt from prompt library
+  useEffect(() => {
+    if (pendingPrompt) {
+      setInput(pendingPrompt);
+      onPromptConsumed?.();
+      textareaRef.current?.focus();
+    }
+  }, [pendingPrompt, onPromptConsumed]);
 
   // Check if server API is available on mount
   useEffect(() => {
@@ -86,6 +104,34 @@ export default function MessagingInterface() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeSession?.messages.length]);
+
+  const handleAttachment = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result as string;
+      const prefix = input ? input + '\n\n' : '';
+      setInput(prefix + `[Attached: ${file.name}]\n${content.substring(0, 2000)}${content.length > 2000 ? '\n... (truncated)' : ''}`);
+      textareaRef.current?.focus();
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleInsertLink = () => {
+    const url = prompt('Enter a URL to reference:');
+    if (url?.trim()) {
+      const prefix = input ? input + ' ' : '';
+      setInput(prefix + url.trim());
+      textareaRef.current?.focus();
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || state.isOrchestrating) return;
@@ -213,6 +259,15 @@ export default function MessagingInterface() {
 
   return (
     <div className="w-full max-w-4xl mx-auto">
+      {/* Hidden file input for attachments */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept=".txt,.md,.csv,.json,.xml,.html,.css,.js,.ts,.py,.pdf,.doc,.docx"
+        onChange={handleFileSelected}
+      />
+
       {/* Message History */}
       {activeSession && activeSession.messages.length > 0 && (
         <div className="mb-6 space-y-4 max-h-[600px] overflow-y-auto pr-2">
@@ -283,10 +338,18 @@ export default function MessagingInterface() {
             disabled={state.isOrchestrating}
           />
           <div className="flex items-center gap-1 shrink-0">
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <button
+              onClick={handleAttachment}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Attach a file"
+            >
               <Paperclip className="w-4 h-4" />
             </button>
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+            <button
+              onClick={handleInsertLink}
+              className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              title="Insert a link"
+            >
               <Link2 className="w-4 h-4" />
             </button>
             <button
