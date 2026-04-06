@@ -1,28 +1,119 @@
 'use client';
 
 import { useState } from 'react';
-import { OrchestratorProvider, useOrchestrator } from '@/store/orchestrator-context';
+import { OrchestratorProvider, useOrchestrator, useOrchestratorActions } from '@/store/orchestrator-context';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
 import CategoryTabs from '@/components/orchestrate/CategoryTabs';
 import MessagingInterface from '@/components/messaging/MessagingInterface';
 import VaultPanel from '@/components/layout/VaultPanel';
+import { BarChart3, X, Zap } from 'lucide-react';
+
+function GasUsageModal({ onClose }: { onClose: () => void }) {
+  const { state } = useOrchestrator();
+  const { gas } = state;
+  const pct = ((gas.used / gas.total) * 100).toFixed(1);
+
+  return (
+    <div className="absolute inset-0 z-30 bg-black/20 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-900">Gas Credits Usage</h2>
+          </div>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg">
+            <X className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="text-gray-600">Used</span>
+              <span className="font-semibold text-gray-900">{gas.used.toFixed(1)} / {gas.total} GC</span>
+            </div>
+            <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${gas.remaining <= gas.lowThreshold ? 'bg-red-500' : 'bg-blue-500'}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="bg-blue-50 rounded-lg p-3">
+              <div className="text-lg font-bold text-blue-700">{gas.remaining.toFixed(1)}</div>
+              <div className="text-[10px] text-blue-500 font-medium">REMAINING</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-lg font-bold text-gray-700">{gas.used.toFixed(1)}</div>
+              <div className="text-[10px] text-gray-500 font-medium">USED</div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="text-lg font-bold text-gray-700">{state.sessions.length}</div>
+              <div className="text-[10px] text-gray-500 font-medium">SESSIONS</div>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-500">
+            <div className="flex justify-between py-1 border-b border-gray-100">
+              <span>Plan</span>
+              <span className="font-medium text-gray-700">{gas.plan.toUpperCase()}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-gray-100">
+              <span>Low threshold</span>
+              <span className="font-medium text-gray-700">{gas.lowThreshold} GC</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => window.open('https://openclawguardrails.com', '_self')}
+            className="w-full bg-gray-900 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+          >
+            <Zap className="w-4 h-4" />
+            Upgrade for More Gas Credits
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function OrchestratorApp() {
   const { state } = useOrchestrator();
+  const actions = useOrchestratorActions();
   const [showVault, setShowVault] = useState(false);
+  const [showGasUsage, setShowGasUsage] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
+  const handleLoadPrompt = (title: string, desc: string) => {
+    setPendingPrompt(`${title}: ${desc}`);
+    actions.setTab('builder');
+  };
+
+  const handleOpenSession = (sessionId: string) => {
+    actions.setSession(sessionId);
+    actions.setTab('builder');
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       <Header />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onOpenVault={() => setShowVault(true)} />
+        {state.sidebarOpen && (
+          <Sidebar onOpenVault={() => setShowVault(true)} onShowGasUsage={() => setShowGasUsage(true)} />
+        )}
         <main className="flex-1 overflow-y-auto relative">
           {/* Modal Overlays */}
           {showVault && (
             <div className="absolute inset-0 z-20 bg-black/20 flex items-start justify-center pt-16">
               <VaultPanel onClose={() => setShowVault(false)} />
             </div>
+          )}
+
+          {showGasUsage && (
+            <GasUsageModal onClose={() => setShowGasUsage(false)} />
           )}
 
           {state.activeTab === 'builder' && (
@@ -48,7 +139,7 @@ function OrchestratorApp() {
               </div>
 
               {/* Messaging Interface */}
-              <MessagingInterface />
+              <MessagingInterface pendingPrompt={pendingPrompt} onPromptConsumed={() => setPendingPrompt(null)} />
             </div>
           )}
 
@@ -73,6 +164,7 @@ function OrchestratorApp() {
                 ].map((prompt, i) => (
                   <div
                     key={i}
+                    onClick={() => handleLoadPrompt(prompt.title, prompt.desc)}
                     className="border border-gray-200 rounded-lg p-4 bg-white hover:border-blue-300 hover:shadow-sm cursor-pointer transition-all group"
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -103,6 +195,7 @@ function OrchestratorApp() {
                   {state.sessions.map(session => (
                     <div
                       key={session.id}
+                      onClick={() => handleOpenSession(session.id)}
                       className="border border-gray-200 rounded-lg p-4 bg-white hover:border-blue-300 cursor-pointer transition-all"
                     >
                       <h3 className="text-sm font-semibold text-gray-800 truncate mb-1">{session.name}</h3>

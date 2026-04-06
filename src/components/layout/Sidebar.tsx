@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useOrchestrator, useOrchestratorActions } from '@/store/orchestrator-context';
 import {
   LayoutGrid,
@@ -15,7 +16,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
+export default function Sidebar({ onOpenVault, onShowGasUsage }: { onOpenVault?: () => void; onShowGasUsage?: () => void }) {
   const { state } = useOrchestrator();
   const actions = useOrchestratorActions();
 
@@ -48,8 +49,8 @@ export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
         <SidebarItem
           icon={<LayoutGrid className="w-4 h-4" />}
           label="Orchestrate"
-          active
-          onClick={() => actions.setSession(null)}
+          active={!state.activeSessionId}
+          onClick={() => { actions.setSession(null); actions.setTab('builder'); }}
         />
         <SidebarItem
           icon={<Plus className="w-4 h-4" />}
@@ -90,6 +91,7 @@ export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
             icon={<FileText className="w-4 h-4" />}
             label={`${item.type.charAt(0).toUpperCase() + item.type.slice(1)}: ${item.name.substring(0, 15)}...`}
             small
+            onClick={onOpenVault}
           />
         ))}
 
@@ -106,7 +108,7 @@ export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
               icon={<Clock className="w-4 h-4" />}
               label={session.name}
               small
-              onClick={() => actions.setSession(session.id)}
+              onClick={() => { actions.setSession(session.id); actions.setTab('builder'); }}
               active={state.activeSessionId === session.id}
             />
           ))
@@ -125,6 +127,7 @@ export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
               icon={<Folder className="w-4 h-4" />}
               label={project.name}
               small
+              onClick={() => actions.setTab('builder')}
             />
           ))
         )}
@@ -135,14 +138,21 @@ export default function Sidebar({ onOpenVault }: { onOpenVault?: () => void }) {
         <SidebarItem
           icon={<BarChart3 className="w-4 h-4" />}
           label="GC Usage"
+          onClick={onShowGasUsage}
         />
         <SidebarItem
           icon={<Zap className="w-4 h-4" />}
           label="Upgrade"
+          onClick={() => window.open('https://openclawguardrails.com', '_self')}
         />
         <SidebarItem
           icon={<LogOut className="w-4 h-4" />}
           label="Logout"
+          onClick={() => {
+            if (confirm('Are you sure you want to logout?')) {
+              window.location.reload();
+            }
+          }}
         />
         <div className="px-4 py-1.5 flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-green-500" />

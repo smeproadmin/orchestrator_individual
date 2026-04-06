@@ -12,14 +12,18 @@ const tabs: Array<{ key: TabType; label: string; icon?: boolean }> = [
 
 export default function Header() {
   const { state } = useOrchestrator();
-  const { setTab } = useOrchestratorActions();
+  const { setTab, toggleSidebar } = useOrchestratorActions();
   const { gas } = state;
   const isLowGas = gas.remaining <= gas.lowThreshold;
 
   return (
     <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-6">
-        <button className="text-gray-400 hover:text-gray-600">
+        <button
+          onClick={toggleSidebar}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
+          title="Toggle sidebar"
+        >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <rect x="2" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
             <rect x="11" y="2" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.5" />
@@ -77,7 +81,10 @@ export default function Header() {
           </div>
         )}
 
-        <button className="bg-gray-900 text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-gray-800 transition-colors flex items-center gap-1.5">
+        <button
+          onClick={() => window.open('https://openclawguardrails.com', '_self')}
+          className="bg-gray-900 text-white px-4 py-1.5 rounded-md text-xs font-semibold hover:bg-gray-800 transition-colors flex items-center gap-1.5"
+        >
           <Zap className="w-3.5 h-3.5" />
           Upgrade
         </button>

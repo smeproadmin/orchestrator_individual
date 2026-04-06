@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, Check, ChevronDown, ChevronRight, Table2, Code2, FileText, CheckSquare, Workflow, BarChart3 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Copy, Check, ChevronDown, ChevronRight, Table2, Code2, FileText, CheckSquare, Workflow, BarChart3, Play, Maximize2, Minimize2 } from 'lucide-react';
 
 export interface Artifact {
   id: string;
-  type: 'table' | 'code' | 'chart' | 'document' | 'checklist' | 'workflow';
+  type: 'table' | 'code' | 'chart' | 'document' | 'checklist' | 'workflow' | 'interactive';
   title: string;
   content: string;
   language?: string;
@@ -18,6 +18,7 @@ const typeIcons: Record<string, React.ReactNode> = {
   document: <FileText className="w-3.5 h-3.5" />,
   checklist: <CheckSquare className="w-3.5 h-3.5" />,
   workflow: <Workflow className="w-3.5 h-3.5" />,
+  interactive: <Play className="w-3.5 h-3.5" />,
 };
 
 const typeColors: Record<string, string> = {
@@ -27,6 +28,7 @@ const typeColors: Record<string, string> = {
   document: 'bg-green-50 border-green-200 text-green-700',
   checklist: 'bg-amber-50 border-amber-200 text-amber-700',
   workflow: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+  interactive: 'bg-emerald-50 border-emerald-200 text-emerald-700',
 };
 
 export default function ArtifactRenderer({ artifacts }: { artifacts: Artifact[] }) {
@@ -84,6 +86,8 @@ function ArtifactCard({ artifact }: { artifact: Artifact }) {
             <div className="overflow-x-auto">
               <TableRenderer content={artifact.content} />
             </div>
+          ) : artifact.type === 'interactive' ? (
+            <InteractiveRenderer content={artifact.content} />
           ) : artifact.type === 'code' ? (
             <pre className="p-3 text-xs font-mono text-gray-800 overflow-x-auto bg-gray-50">
               <code>{artifact.content}</code>
@@ -97,6 +101,60 @@ function ArtifactCard({ artifact }: { artifact: Artifact }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function InteractiveRenderer({ content }: { content: string }) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [iframeHeight, setIframeHeight] = useState(400);
+
+  // Build a complete HTML document if content is a fragment
+  const htmlDoc = content.includes('<!DOCTYPE') || content.includes('<html')
+    ? content
+    : `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 16px; }
+  </style>
+</head>
+<body>${content}</body>
+</html>`;
+
+  useEffect(() => {
+    if (iframeRef.current) {
+      const blob = new Blob([htmlDoc], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      iframeRef.current.src = url;
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [htmlDoc]);
+
+  return (
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-white p-4' : ''}`}>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-emerald-50 border-b border-emerald-200">
+        <span className="text-[10px] font-medium text-emerald-600 flex items-center gap-1">
+          <Play className="w-3 h-3" /> LIVE PREVIEW
+        </span>
+        <button
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="p-1 rounded hover:bg-emerald-100 text-emerald-600 transition-colors"
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        >
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+      <iframe
+        ref={iframeRef}
+        sandbox="allow-scripts allow-forms allow-modals"
+        className="w-full border-0"
+        style={{ height: isFullscreen ? 'calc(100vh - 80px)' : `${iframeHeight}px` }}
+        title="Interactive artifact"
+      />
     </div>
   );
 }
